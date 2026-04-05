@@ -35,6 +35,7 @@ export default function CameraPage() {
   const [overwriteConfirm, setOverwriteConfirm] = useState(false);
   const [referenceImage, setReferenceImage] = useState<HTMLImageElement | null>(null);
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
+  const [timerEnabled, setTimerEnabled] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const countdownRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -144,27 +145,31 @@ export default function CameraPage() {
     overlay.height = rect.height;
   };
 
-  // タイマー撮影（10秒カウントダウン）
-  const startTimer = () => {
+  // シャッターを押したとき（タイマーONならカウントダウン → 撮影）
+  const handleShutter = () => {
     if (countdown !== null) {
-      // キャンセル
+      // カウント中にもう一度押したらキャンセル
       if (countdownRef.current) clearTimeout(countdownRef.current);
       setCountdown(null);
       return;
     }
-    setCountdown(10);
-    let count = 10;
-    const tick = () => {
-      count -= 1;
-      if (count <= 0) {
-        setCountdown(null);
-        capture();
-      } else {
-        setCountdown(count);
-        countdownRef.current = setTimeout(tick, 1000);
-      }
-    };
-    countdownRef.current = setTimeout(tick, 1000);
+    if (timerEnabled) {
+      setCountdown(10);
+      let count = 10;
+      const tick = () => {
+        count -= 1;
+        if (count <= 0) {
+          setCountdown(null);
+          capture();
+        } else {
+          setCountdown(count);
+          countdownRef.current = setTimeout(tick, 1000);
+        }
+      };
+      countdownRef.current = setTimeout(tick, 1000);
+    } else {
+      capture();
+    }
   };
 
   // 撮影
@@ -203,7 +208,25 @@ export default function CameraPage() {
 
   // 保存処理
   const handleSave = async () => {
-    if (!stampedBlob || !settings || !accessToken || !user) return;
+    if (!stampedBlob || !settings || !user) {
+      alert("保存に必要な情報が不足しています。");
+      return;
+    }
+
+    // アクセストークンが切れていたら再取得
+    let token = accessToken;
+    if (!token) {
+      try {
+        token = await refreshAccessToken();
+      } catch {
+        alert("Googleの認証が切れました。ページを再読み込みしてログインし直してください。");
+        return;
+      }
+    }
+    if (!token) {
+      alert("Googleドライブへのアクセス権がありません。ログインし直してください。");
+      return;
+    }
 
     if (existingRecord && !overwriteConfirm) {
       setOverwriteConfirm(true);
@@ -212,20 +235,25 @@ export default function CameraPage() {
 
     setSaving(true);
     try {
-      const folderId = settings.subFolderIds[shotType]!;
+      // フォルダIDが未設定の場合は再作成
+      let folderId = settings.subFolderIds[shotType];
+      if (!folderId) {
+        const { getOrCreateAppFolder, getOrCreateSubFolder } = await import("@/lib/drive");
+        const appFolderId = settings.appFolderId || await getOrCreateAppFolder(token);
+        folderId = await getOrCreateSubFolder(token, appFolderId, shotType);
+      }
       const fileName = `${today}.jpg`;
-
       let fileId: string;
       if (existingRecord) {
         fileId = await overwritePhoto(
-          accessToken,
+          token,
           folderId,
           fileName,
           stampedBlob,
           existingRecord.driveFileId
         );
       } else {
-        fileId = await uploadPhoto(accessToken, folderId, fileName, stampedBlob);
+        fileId = await uploadPhoto(token, folderId, fileName, stampedBlob);
       }
 
       // ガイド用写真として最初の記録を保存
@@ -383,10 +411,10 @@ export default function CameraPage() {
 
         {/* シャッターボタン + タイマー + カメラ切り替え */}
         <div className="bg-black flex items-center justify-center gap-8 py-8 safe-bottom">
-          {/* タイマーボタン */}
+          {/* タイマートグル */}
           <button
-            onClick={startTimer}
-            className={`w-12 h-12 rounded-full flex items-center justify-center active:scale-90 transition-transform ${countdown !== null ? "bg-red-500/70" : "bg-white/20"}`}
+            onClick={() => setTimerEnabled((v) => !v)}
+            className={`w-12 h-12 rounded-full flex items-center justify-center active:scale-90 transition-transform ${timerEnabled ? "bg-yellow-400/80" : "bg-white/20"}`}
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="13" r="8" stroke="white" strokeWidth="1.8"/>
@@ -395,10 +423,10 @@ export default function CameraPage() {
             </svg>
           </button>
 
-          {/* シャッター */}
+          {/* シャッター（タイマーON時はカウントダウン開始） */}
           <button
-            onClick={capture}
-            className="w-20 h-20 rounded-full border-4 border-white bg-white/20 active:scale-90 transition-transform"
+            onClick={handleShutter}
+            className={`w-20 h-20 rounded-full border-4 border-white active:scale-90 transition-transform ${countdown !== null ? "bg-red-500/60" : "bg-white/20"}`}
           />
 
           {/* カメラ切り替え */}
