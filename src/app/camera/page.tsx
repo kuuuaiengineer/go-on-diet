@@ -79,11 +79,8 @@ export default function CameraPage() {
     if (referenceImage) {
       // 2回目以降：ゴースト（半透明の参照写真）を表示
       drawGhostOverlay(ctx, canvas.width, canvas.height, referenceImage);
-    } else {
-      // 初回：ガイドラインのみ表示
-      const guide = generateGuidePoints(canvas.height);
-      drawGuideLines(ctx, canvas.width, canvas.height, guide);
     }
+    // 初回はガイドなし
 
     animFrameRef.current = requestAnimationFrame(drawOverlay);
   }, [showGuide, referenceImage]);
