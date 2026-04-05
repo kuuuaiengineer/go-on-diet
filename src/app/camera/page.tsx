@@ -35,6 +35,8 @@ export default function CameraPage() {
   const [overwriteConfirm, setOverwriteConfirm] = useState(false);
   const [referenceImage, setReferenceImage] = useState<HTMLImageElement | null>(null);
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -105,9 +107,8 @@ export default function CameraPage() {
     }
   }, [facingMode]);
 
-  // カメラを停止
+  // カメラを停止（animationFrameはガイド側で管理するため触らない）
   const stopCamera = useCallback(() => {
-    cancelAnimationFrame(animFrameRef.current);
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
   }, []);
@@ -144,6 +145,29 @@ export default function CameraPage() {
     const rect = video.getBoundingClientRect();
     overlay.width = rect.width;
     overlay.height = rect.height;
+  };
+
+  // タイマー撮影（10秒カウントダウン）
+  const startTimer = () => {
+    if (countdown !== null) {
+      // キャンセル
+      if (countdownRef.current) clearTimeout(countdownRef.current);
+      setCountdown(null);
+      return;
+    }
+    setCountdown(10);
+    let count = 10;
+    const tick = () => {
+      count -= 1;
+      if (count <= 0) {
+        setCountdown(null);
+        capture();
+      } else {
+        setCountdown(count);
+        countdownRef.current = setTimeout(tick, 1000);
+      }
+    };
+    countdownRef.current = setTimeout(tick, 1000);
   };
 
   // 撮影
@@ -345,15 +369,34 @@ export default function CameraPage() {
               {SHOT_TYPE_LABELS[shotType]}
             </span>
           </div>
+
+          {/* カウントダウン表示 */}
+          {countdown !== null && (
+            <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
+              <span className="text-white font-bold drop-shadow-lg"
+                style={{ fontSize: "min(40vw, 40vh)" }}>
+                {countdown}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* 非表示Canvas（撮影用） */}
         <canvas ref={canvasRef} className="hidden" />
 
-        {/* シャッターボタン + カメラ切り替え */}
-        <div className="bg-black flex items-center justify-center gap-12 py-8 safe-bottom">
-          {/* 空白（左バランス用） */}
-          <div className="w-12" />
+        {/* シャッターボタン + タイマー + カメラ切り替え */}
+        <div className="bg-black flex items-center justify-center gap-8 py-8 safe-bottom">
+          {/* タイマーボタン */}
+          <button
+            onClick={startTimer}
+            className={`w-12 h-12 rounded-full flex items-center justify-center active:scale-90 transition-transform ${countdown !== null ? "bg-red-500/70" : "bg-white/20"}`}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="13" r="8" stroke="white" strokeWidth="1.8"/>
+              <path d="M12 9v4l2.5 2.5" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
+              <path d="M9 2h6M12 2v3" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
+            </svg>
+          </button>
 
           {/* シャッター */}
           <button
@@ -369,7 +412,7 @@ export default function CameraPage() {
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
               <path d="M20 7h-3.17L15 5H9L7.17 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z" stroke="white" strokeWidth="1.8" strokeLinejoin="round"/>
               <circle cx="12" cy="13" r="3" stroke="white" strokeWidth="1.8"/>
-              <path d="M9 3l1.5-1.5h3L15 3" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+              <path d="M15 2l2 2-2 2M9 2L7 4l2 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
         </div>

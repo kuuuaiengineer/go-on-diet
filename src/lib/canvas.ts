@@ -82,7 +82,7 @@ export function generateGuidePoints(imageHeight: number): GuidePoints {
   };
 }
 
-// 初回用：人型シルエット＋ガイドライン
+// 初回用：腕付き人型シルエット（ラベル・線なし）
 export function drawGuideLines(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -90,10 +90,9 @@ export function drawGuideLines(
   guide: GuidePoints
 ) {
   drawBodySilhouette(ctx, width, height, guide);
-  drawKeyPointLabels(ctx, width, height, guide);
 }
 
-// シンプルな人型シルエット（首から下・正面）
+// 腕付き人型シルエット（首から下・正面）
 function drawBodySilhouette(
   ctx: CanvasRenderingContext2D,
   w: number,
@@ -101,99 +100,89 @@ function drawBodySilhouette(
   guide: GuidePoints
 ) {
   const cx = w / 2;
-  const sY = guide.shoulder.y * h;
-  const wY = guide.waist.y * h;
-  const aY = guide.ankle.y * h;
+  const sY  = guide.shoulder.y * h;
+  const wY  = guide.waist.y * h;
+  const aY  = guide.ankle.y * h;
 
-  const nw = w * 0.05;   // 首の半幅
-  const sw = w * 0.24;   // 肩の半幅
-  const ww = w * 0.15;   // 腰の半幅
-  const hw = w * 0.19;   // ヒップの半幅
-  const lw = w * 0.085;  // 脚の半幅
+  // 体の幅
+  const nw  = w * 0.052;  // 首半幅
+  const sw  = w * 0.22;   // 肩半幅
+  const uw  = w * 0.14;   // 脇半幅
+  const ww  = w * 0.14;   // 腰半幅
+  const hw  = w * 0.185;  // ヒップ半幅
+  const lw  = w * 0.083;  // 脚半幅
 
+  // 腕
+  const armOX = w * 0.315; // 腕外側X（中心から）
+  const armIX = w * 0.245; // 腕内側X
+  const armW  = armOX - armIX;
+
+  // Y座標
+  const axY   = sY  + (wY - sY) * 0.32;  // 脇
+  const wristY = wY + (aY - wY) * 0.08;  // 手首
+  const handY  = wristY + h * 0.04;       // 手先
   const hipY   = wY + (aY - wY) * 0.22;
   const crotY  = wY + (aY - wY) * 0.34;
-  const footY  = aY + h * 0.04;
+  const footY  = aY + h * 0.038;
 
   ctx.save();
   ctx.beginPath();
 
-  // 左首 → 左肩
+  // ── 左側（首→肩→腕→胴体→脚） ──
   ctx.moveTo(cx - nw, 0);
-  ctx.quadraticCurveTo(cx - sw * 0.45, sY * 0.45, cx - sw, sY);
-  // 左肩 → 左わき → 左腰
-  ctx.lineTo(cx - sw, sY + (wY - sY) * 0.35);
-  ctx.quadraticCurveTo(cx - sw * 0.95, wY * 0.9, cx - ww, wY);
-  // 左腰 → 左ヒップ → 股
-  ctx.quadraticCurveTo(cx - hw * 1.05, hipY, cx - hw, hipY);
-  ctx.quadraticCurveTo(cx - hw * 1.0, crotY * 0.96, cx - lw * 1.5, crotY);
+  // 首〜肩
+  ctx.bezierCurveTo(cx - nw * 1.6, sY * 0.35, cx - sw * 0.65, sY * 0.7, cx - sw, sY);
+  // 肩〜左腕外側
+  ctx.bezierCurveTo(cx - sw * 1.05, sY + (axY - sY) * 0.4, cx - armOX, axY * 0.85, cx - armOX, axY);
+  // 左腕外側〜手首
+  ctx.bezierCurveTo(cx - armOX * 1.02, axY + (wristY - axY) * 0.5, cx - armOX * 0.98, wristY - h * 0.01, cx - armOX + armW * 0.15, wristY);
+  // 手
+  ctx.bezierCurveTo(cx - armOX + armW * 0.1, handY, cx - armIX - armW * 0.1, handY, cx - armIX - armW * 0.15, wristY);
+  // 左腕内側〜脇
+  ctx.bezierCurveTo(cx - armIX * 0.98, wristY - h * 0.01, cx - armIX * 1.02, axY * 0.85, cx - armIX, axY);
+  // 脇〜腰
+  ctx.bezierCurveTo(cx - uw * 1.05, axY + (wY - axY) * 0.5, cx - ww, wY * 0.95, cx - ww, wY);
+  // 腰〜ヒップ〜股
+  ctx.bezierCurveTo(cx - hw * 1.08, wY + (hipY - wY) * 0.6, cx - hw * 1.05, hipY, cx - hw, hipY);
+  ctx.bezierCurveTo(cx - hw * 1.02, hipY + (crotY - hipY) * 0.7, cx - lw * 1.6, crotY * 0.98, cx - lw * 1.3, crotY);
+  ctx.bezierCurveTo(cx - lw * 0.6, crotY + h * 0.008, cx - lw, crotY + h * 0.015, cx - lw, crotY + h * 0.02);
   // 左脚
-  ctx.quadraticCurveTo(cx - lw * 1.3, crotY + (aY - crotY) * 0.5, cx - lw, aY);
+  ctx.bezierCurveTo(cx - lw * 1.05, crotY + (aY - crotY) * 0.45, cx - lw * 1.02, aY - h * 0.01, cx - lw, aY);
   // 左足
-  ctx.lineTo(cx - lw * 2.8, footY);
-  // 右足
+  ctx.bezierCurveTo(cx - lw * 1.1, aY + footY * 0.01, cx - lw * 2.5, aY + h * 0.025, cx - lw * 2.8, footY);
+
+  // 足底
   ctx.lineTo(cx + lw * 2.8, footY);
+
+  // ── 右側（脚→胴体→腕→肩→首） ──
+  // 右足
+  ctx.bezierCurveTo(cx + lw * 2.5, aY + h * 0.025, cx + lw * 1.1, aY + footY * 0.01, cx + lw, aY);
   // 右脚
-  ctx.lineTo(cx + lw, aY);
-  ctx.quadraticCurveTo(cx + lw * 1.3, crotY + (aY - crotY) * 0.5, cx + lw * 1.5, crotY);
-  // 股 → 右ヒップ → 右腰
-  ctx.quadraticCurveTo(cx + hw * 1.0, crotY * 0.96, cx + hw, hipY);
-  ctx.quadraticCurveTo(cx + hw * 1.05, hipY, cx + ww, wY);
-  // 右腰 → 右わき → 右肩
-  ctx.quadraticCurveTo(cx + sw * 0.95, wY * 0.9, cx + sw, sY + (wY - sY) * 0.35);
-  ctx.lineTo(cx + sw, sY);
-  // 右肩 → 右首
-  ctx.quadraticCurveTo(cx + sw * 0.45, sY * 0.45, cx + nw, 0);
+  ctx.bezierCurveTo(cx + lw * 1.02, aY - h * 0.01, cx + lw * 1.05, crotY + (aY - crotY) * 0.45, cx + lw, crotY + h * 0.02);
+  ctx.bezierCurveTo(cx + lw, crotY + h * 0.015, cx + lw * 0.6, crotY + h * 0.008, cx + lw * 1.3, crotY);
+  ctx.bezierCurveTo(cx + lw * 1.6, crotY * 0.98, cx + hw * 1.02, hipY + (crotY - hipY) * 0.7, cx + hw, hipY);
+  // ヒップ〜腰
+  ctx.bezierCurveTo(cx + hw * 1.05, hipY, cx + hw * 1.08, wY + (hipY - wY) * 0.6, cx + ww, wY);
+  // 腰〜脇
+  ctx.bezierCurveTo(cx + ww, wY * 0.95, cx + armIX * 1.02, axY * 0.85, cx + armIX, axY);
+  // 右腕内側〜手首
+  ctx.bezierCurveTo(cx + armIX * 1.02, axY * 0.85, cx + armIX * 0.98, wristY - h * 0.01, cx + armIX + armW * 0.15, wristY);
+  // 手
+  ctx.bezierCurveTo(cx + armIX + armW * 0.1, handY, cx + armOX - armW * 0.1, handY, cx + armOX - armW * 0.15, wristY);
+  // 右腕外側〜肩
+  ctx.bezierCurveTo(cx + armOX * 0.98, wristY - h * 0.01, cx + armOX * 1.02, axY * 0.85, cx + armOX, axY);
+  ctx.bezierCurveTo(cx + armOX, axY * 0.85, cx + sw * 1.05, sY + (axY - sY) * 0.4, cx + sw, sY);
+  // 肩〜首
+  ctx.bezierCurveTo(cx + sw * 0.65, sY * 0.7, cx + nw * 1.6, sY * 0.35, cx + nw, 0);
+
   ctx.closePath();
 
-  ctx.fillStyle = "rgba(255,255,255,0.08)";
+  ctx.fillStyle = "rgba(255,255,255,0.09)";
   ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,0.6)";
+  ctx.strokeStyle = "rgba(255,255,255,0.65)";
   ctx.lineWidth = 2;
   ctx.stroke();
   ctx.restore();
-}
-
-// ガイドポイントのラベル
-function drawKeyPointLabels(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  guide: GuidePoints
-) {
-  const points = [
-    { y: guide.shoulder.y * h, color: "rgba(147,197,253,0.95)", label: "肩" },
-    { y: guide.waist.y * h,    color: "rgba(253,186,116,0.95)", label: "腰" },
-    { y: guide.ankle.y * h,    color: "rgba(216,180,254,0.95)", label: "足首" },
-  ];
-
-  const fontSize = Math.round(Math.max(12, w * 0.034));
-
-  points.forEach(({ y, color, label }) => {
-    // 両端の短い横線
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([5, 4]);
-    [[0, w * 0.08], [w * 0.92, w]].forEach(([from, to]) => {
-      ctx.beginPath();
-      ctx.moveTo(from, y);
-      ctx.lineTo(to, y);
-      ctx.stroke();
-    });
-    ctx.setLineDash([]);
-
-    // ラベル背景
-    ctx.font = `600 ${fontSize}px -apple-system, "Hiragino Sans", sans-serif`;
-    const tw = ctx.measureText(label).width + 10;
-    const th = fontSize + 6;
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.beginPath();
-    ctx.roundRect(w * 0.09, y - th, tw, th, 4);
-    ctx.fill();
-    ctx.fillStyle = color;
-    ctx.textBaseline = "bottom";
-    ctx.fillText(label, w * 0.09 + 5, y - 3);
-  });
 }
 
 // 参照写真をゴースト（半透明シルエット）としてCanvasに描画
