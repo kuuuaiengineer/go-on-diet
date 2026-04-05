@@ -136,8 +136,10 @@ export default function CameraPage() {
     const video = videoRef.current;
     const overlay = overlayRef.current;
     if (!video || !overlay) return;
-    overlay.width = video.clientWidth;
-    overlay.height = video.clientHeight;
+    // clientWidthではなくgetBoundingClientRectで正確なサイズを取得
+    const rect = video.getBoundingClientRect();
+    overlay.width = rect.width;
+    overlay.height = rect.height;
   };
 
   // 撮影
@@ -294,40 +296,15 @@ export default function CameraPage() {
     );
   }
 
-  // カメラ画面
+  // カメラ画面（フルスクリーン）
   if (step === "camera") {
     return (
-      <div className="flex-1 flex flex-col bg-black relative">
-        {/* 戻るボタン */}
-        <button
-          onClick={handleBack}
-          className="absolute top-4 left-4 z-20 w-10 h-10 bg-black/50 rounded-full flex items-center justify-center"
-        >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path d="M13 4L7 10L13 16" stroke="white" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-        </button>
-
-        {/* ガイドOn/Off */}
-        <button
-          onClick={() => setShowGuide((v) => !v)}
-          className="absolute top-4 right-4 z-20 bg-black/50 rounded-full px-3 py-2 text-xs text-white font-medium"
-        >
-          {referenceImage ? "ゴースト" : "ガイド"} {showGuide ? "ON" : "OFF"}
-        </button>
-
-        {/* タイプ表示 */}
-        <div className="absolute top-16 left-0 right-0 flex justify-center z-20">
-          <span className="bg-black/50 text-white text-sm px-4 py-1.5 rounded-full font-medium">
-            {SHOT_TYPE_LABELS[shotType]}
-          </span>
-        </div>
-
-        {/* ビデオ + オーバーレイ */}
+      <div className="fixed inset-0 bg-black z-50 flex flex-col">
+        {/* ビデオ + オーバーレイ（フル画面） */}
         <div className="flex-1 relative overflow-hidden">
           <video
             ref={videoRef}
-            className="w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-cover"
             playsInline
             muted
             autoPlay
@@ -338,13 +315,38 @@ export default function CameraPage() {
             ref={overlayRef}
             className="absolute inset-0 w-full h-full pointer-events-none"
           />
+
+          {/* 戻るボタン */}
+          <button
+            onClick={handleBack}
+            className="absolute top-12 left-4 z-20 w-10 h-10 bg-black/50 rounded-full flex items-center justify-center"
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path d="M13 4L7 10L13 16" stroke="white" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
+
+          {/* ガイドOn/Off */}
+          <button
+            onClick={() => setShowGuide((v) => !v)}
+            className="absolute top-12 right-4 z-20 bg-black/50 rounded-full px-3 py-2 text-xs text-white font-medium"
+          >
+            {referenceImage ? "ゴースト" : "ガイド"} {showGuide ? "ON" : "OFF"}
+          </button>
+
+          {/* タイプ表示 */}
+          <div className="absolute top-12 left-0 right-0 flex justify-center z-10">
+            <span className="bg-black/50 text-white text-sm px-4 py-1.5 rounded-full font-medium">
+              {SHOT_TYPE_LABELS[shotType]}
+            </span>
+          </div>
         </div>
 
         {/* 非表示Canvas（撮影用） */}
         <canvas ref={canvasRef} className="hidden" />
 
         {/* シャッターボタン */}
-        <div className="bg-black flex items-center justify-center py-8">
+        <div className="bg-black flex items-center justify-center py-8 safe-bottom">
           <button
             onClick={capture}
             className="w-20 h-20 rounded-full border-4 border-white bg-white/20 active:scale-90 transition-transform"
