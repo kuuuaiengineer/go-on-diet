@@ -93,7 +93,7 @@ export function drawGuideLines(
   drawKeyPointLabels(ctx, width, height, guide);
 }
 
-// 人型シルエット（正面・首から下）
+// シンプルな人型シルエット（首から下・正面）
 function drawBodySilhouette(
   ctx: CanvasRenderingContext2D,
   w: number,
@@ -105,77 +105,56 @@ function drawBodySilhouette(
   const wY = guide.waist.y * h;
   const aY = guide.ankle.y * h;
 
-  const sw = w * 0.26;   // 肩の半幅
-  const nw = w * 0.055;  // 首の半幅
-  const tw = w * 0.145;  // 胴体腰の半幅
-  const hw = w * 0.195;  // 腰の半幅
-  const lw = w * 0.095;  // 脚の半幅
-  const aw = w * 0.085;  // 腕の半幅
+  const nw = w * 0.05;   // 首の半幅
+  const sw = w * 0.24;   // 肩の半幅
+  const ww = w * 0.15;   // 腰の半幅
+  const hw = w * 0.19;   // ヒップの半幅
+  const lw = w * 0.085;  // 脚の半幅
 
-  const hipY  = wY + (aY - wY) * 0.18;
-  const crotY = wY + (aY - wY) * 0.28;
-  const kneeY = wY + (aY - wY) * 0.56;
-  const uarmY = sY + (wY - sY) * 0.28; // 脇
-  const earmY = sY + (wY - sY) * 0.62; // 肘
-  const wristY = wY + h * 0.01;        // 手首
+  const hipY   = wY + (aY - wY) * 0.22;
+  const crotY  = wY + (aY - wY) * 0.34;
+  const footY  = aY + h * 0.04;
 
   ctx.save();
   ctx.beginPath();
 
   // 左首 → 左肩
   ctx.moveTo(cx - nw, 0);
-  ctx.bezierCurveTo(cx - nw * 1.5, sY * 0.4, cx - sw * 0.7, sY * 0.7, cx - sw, sY);
-
-  // 左腕（外側）
-  ctx.bezierCurveTo(cx - sw - aw * 0.3, uarmY, cx - sw - aw * 0.5, earmY, cx - sw - aw * 0.3, wristY);
-  // 左手
-  ctx.bezierCurveTo(cx - sw - aw * 0.2, wristY + h * 0.025, cx - sw - aw * 0.5, wristY + h * 0.025, cx - sw - aw * 0.5, wristY);
-  // 左腕（内側）
-  ctx.bezierCurveTo(cx - sw - aw * 0.1, earmY, cx - tw - aw * 0.2, uarmY, cx - tw - aw * 0.1, uarmY);
-
-  // 左胴体
-  ctx.bezierCurveTo(cx - tw * 1.05, wY * 0.85, cx - tw, wY * 0.95, cx - tw, wY);
-  // 左腰〜股
-  ctx.bezierCurveTo(cx - hw, hipY, cx - hw * 1.05, crotY * 0.92, cx - lw * 1.1, crotY);
-  ctx.quadraticCurveTo(cx - lw * 0.3, crotY + h * 0.01, cx - lw, crotY + h * 0.02);
-
-  // 左脚（内側→外側）
-  ctx.bezierCurveTo(cx - lw * 0.8, kneeY, cx - lw, aY * 0.97, cx - lw, aY);
+  ctx.quadraticCurveTo(cx - sw * 0.45, sY * 0.45, cx - sw, sY);
+  // 左肩 → 左わき → 左腰
+  ctx.lineTo(cx - sw, sY + (wY - sY) * 0.35);
+  ctx.quadraticCurveTo(cx - sw * 0.95, wY * 0.9, cx - ww, wY);
+  // 左腰 → 左ヒップ → 股
+  ctx.quadraticCurveTo(cx - hw * 1.05, hipY, cx - hw, hipY);
+  ctx.quadraticCurveTo(cx - hw * 1.0, crotY * 0.96, cx - lw * 1.5, crotY);
+  // 左脚
+  ctx.quadraticCurveTo(cx - lw * 1.3, crotY + (aY - crotY) * 0.5, cx - lw, aY);
   // 左足
-  ctx.lineTo(cx - lw * 2.2, aY + h * 0.035);
+  ctx.lineTo(cx - lw * 2.8, footY);
   // 右足
-  ctx.lineTo(cx + lw * 2.2, aY + h * 0.035);
+  ctx.lineTo(cx + lw * 2.8, footY);
   // 右脚
   ctx.lineTo(cx + lw, aY);
-  ctx.bezierCurveTo(cx + lw, aY * 0.97, cx + lw * 0.8, kneeY, cx + lw, crotY + h * 0.02);
-
-  // 右股〜腰
-  ctx.quadraticCurveTo(cx + lw * 0.3, crotY + h * 0.01, cx + lw * 1.1, crotY);
-  ctx.bezierCurveTo(cx + hw * 1.05, crotY * 0.92, cx + hw, hipY, cx + tw, wY);
-
-  // 右胴体
-  ctx.bezierCurveTo(cx + tw, wY * 0.95, cx + tw * 1.05, wY * 0.85, cx + tw + aw * 0.1, uarmY);
-  // 右腕（内側）
-  ctx.bezierCurveTo(cx + sw + aw * 0.1, earmY, cx + sw + aw * 0.5, earmY, cx + sw + aw * 0.5, wristY);
-  // 右手
-  ctx.bezierCurveTo(cx + sw + aw * 0.5, wristY + h * 0.025, cx + sw + aw * 0.2, wristY + h * 0.025, cx + sw + aw * 0.3, wristY);
-  // 右腕（外側）
-  ctx.bezierCurveTo(cx + sw + aw * 0.5, earmY, cx + sw + aw * 0.3, uarmY, cx + sw, sY);
-
+  ctx.quadraticCurveTo(cx + lw * 1.3, crotY + (aY - crotY) * 0.5, cx + lw * 1.5, crotY);
+  // 股 → 右ヒップ → 右腰
+  ctx.quadraticCurveTo(cx + hw * 1.0, crotY * 0.96, cx + hw, hipY);
+  ctx.quadraticCurveTo(cx + hw * 1.05, hipY, cx + ww, wY);
+  // 右腰 → 右わき → 右肩
+  ctx.quadraticCurveTo(cx + sw * 0.95, wY * 0.9, cx + sw, sY + (wY - sY) * 0.35);
+  ctx.lineTo(cx + sw, sY);
   // 右肩 → 右首
-  ctx.bezierCurveTo(cx + sw * 0.7, sY * 0.7, cx + nw * 1.5, sY * 0.4, cx + nw, 0);
+  ctx.quadraticCurveTo(cx + sw * 0.45, sY * 0.45, cx + nw, 0);
   ctx.closePath();
 
-  ctx.fillStyle = "rgba(255,255,255,0.07)";
+  ctx.fillStyle = "rgba(255,255,255,0.08)";
   ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,0.5)";
-  ctx.lineWidth = 1.8;
-  ctx.setLineDash([]);
+  ctx.strokeStyle = "rgba(255,255,255,0.6)";
+  ctx.lineWidth = 2;
   ctx.stroke();
   ctx.restore();
 }
 
-// ガイドポイントのラベルを描画
+// ガイドポイントのラベル
 function drawKeyPointLabels(
   ctx: CanvasRenderingContext2D,
   w: number,
@@ -183,38 +162,37 @@ function drawKeyPointLabels(
   guide: GuidePoints
 ) {
   const points = [
-    { y: guide.shoulder.y * h, color: "rgba(147,197,253,0.9)", label: "肩" },
-    { y: guide.waist.y * h,    color: "rgba(253,186,116,0.9)", label: "腰" },
-    { y: guide.ankle.y * h,    color: "rgba(216,180,254,0.9)", label: "足首" },
+    { y: guide.shoulder.y * h, color: "rgba(147,197,253,0.95)", label: "肩" },
+    { y: guide.waist.y * h,    color: "rgba(253,186,116,0.95)", label: "腰" },
+    { y: guide.ankle.y * h,    color: "rgba(216,180,254,0.95)", label: "足首" },
   ];
 
+  const fontSize = Math.round(Math.max(12, w * 0.034));
+
   points.forEach(({ y, color, label }) => {
-    // 両端に短い横線
+    // 両端の短い横線
     ctx.strokeStyle = color;
     ctx.lineWidth = 1.5;
-    ctx.setLineDash([6, 4]);
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(w * 0.1, y);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(w * 0.9, y);
-    ctx.lineTo(w, y);
-    ctx.stroke();
+    ctx.setLineDash([5, 4]);
+    [[0, w * 0.08], [w * 0.92, w]].forEach(([from, to]) => {
+      ctx.beginPath();
+      ctx.moveTo(from, y);
+      ctx.lineTo(to, y);
+      ctx.stroke();
+    });
     ctx.setLineDash([]);
 
-    // ラベル（小さめ・背景付き）
-    const fontSize = Math.max(11, w * 0.032);
-    ctx.font = `600 ${fontSize}px -apple-system, sans-serif`;
-    const tw = ctx.measureText(label).width;
-    const px = 6, py = 3;
-    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    // ラベル背景
+    ctx.font = `600 ${fontSize}px -apple-system, "Hiragino Sans", sans-serif`;
+    const tw = ctx.measureText(label).width + 10;
+    const th = fontSize + 6;
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
     ctx.beginPath();
-    ctx.roundRect(4, y - fontSize - py * 2, tw + px * 2, fontSize + py * 2, 4);
+    ctx.roundRect(w * 0.09, y - th, tw, th, 4);
     ctx.fill();
     ctx.fillStyle = color;
     ctx.textBaseline = "bottom";
-    ctx.fillText(label, 4 + px, y - py);
+    ctx.fillText(label, w * 0.09 + 5, y - 3);
   });
 }
 

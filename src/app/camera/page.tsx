@@ -34,6 +34,7 @@ export default function CameraPage() {
   const [saving, setSaving] = useState(false);
   const [overwriteConfirm, setOverwriteConfirm] = useState(false);
   const [referenceImage, setReferenceImage] = useState<HTMLImageElement | null>(null);
+  const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -88,9 +89,11 @@ export default function CameraPage() {
   // カメラを起動
   const startCamera = useCallback(async () => {
     try {
+      // 既存のストリームを停止
+      streamRef.current?.getTracks().forEach((t) => t.stop());
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: "environment",
+          facingMode,
           width: { ideal: 1080 },
           height: { ideal: 1920 },
         },
@@ -104,7 +107,7 @@ export default function CameraPage() {
     } catch {
       alert("カメラへのアクセスが拒否されました。ブラウザの設定を確認してください。");
     }
-  }, []);
+  }, [facingMode]);
 
   // カメラを停止
   const stopCamera = useCallback(() => {
@@ -120,13 +123,18 @@ export default function CameraPage() {
       stopCamera();
     }
     return () => stopCamera();
-  }, [step, startCamera, stopCamera]);
+  }, [step, startCamera, stopCamera, facingMode]);
 
   useEffect(() => {
     if (step === "camera" && showGuide) {
       animFrameRef.current = requestAnimationFrame(drawOverlay);
     } else {
       cancelAnimationFrame(animFrameRef.current);
+      // OFFにしたらcanvasをクリア
+      const canvas = overlayRef.current;
+      if (canvas) {
+        canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
+      }
     }
     return () => cancelAnimationFrame(animFrameRef.current);
   }, [step, showGuide, drawOverlay]);
@@ -345,12 +353,28 @@ export default function CameraPage() {
         {/* 非表示Canvas（撮影用） */}
         <canvas ref={canvasRef} className="hidden" />
 
-        {/* シャッターボタン */}
-        <div className="bg-black flex items-center justify-center py-8 safe-bottom">
+        {/* シャッターボタン + カメラ切り替え */}
+        <div className="bg-black flex items-center justify-center gap-12 py-8 safe-bottom">
+          {/* 空白（左バランス用） */}
+          <div className="w-12" />
+
+          {/* シャッター */}
           <button
             onClick={capture}
             className="w-20 h-20 rounded-full border-4 border-white bg-white/20 active:scale-90 transition-transform"
           />
+
+          {/* カメラ切り替え */}
+          <button
+            onClick={() => setFacingMode((m) => m === "environment" ? "user" : "environment")}
+            className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center active:scale-90 transition-transform"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <path d="M20 7h-3.17L15 5H9L7.17 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z" stroke="white" strokeWidth="1.8" strokeLinejoin="round"/>
+              <circle cx="12" cy="13" r="3" stroke="white" strokeWidth="1.8"/>
+              <path d="M9 3l1.5-1.5h3L15 3" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </button>
         </div>
       </div>
     );
