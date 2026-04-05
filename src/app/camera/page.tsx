@@ -92,11 +92,7 @@ export default function CameraPage() {
       // 既存のストリームを停止
       streamRef.current?.getTracks().forEach((t) => t.stop());
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode,
-          width: { ideal: 1080 },
-          height: { ideal: 1920 },
-        },
+        video: { facingMode },
         audio: false,
       });
       streamRef.current = stream;
@@ -313,6 +309,7 @@ export default function CameraPage() {
           <video
             ref={videoRef}
             className="absolute inset-0 w-full h-full object-cover"
+            style={facingMode === "user" ? { transform: "scaleX(-1)" } : {}}
             playsInline
             muted
             autoPlay
