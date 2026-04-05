@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #faf8f5;
+  --text: #3d3124;
+  --accent: #3a8f69;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* スマホ向け：スクロールバーを非表示 */
+::-webkit-scrollbar {
+  display: none;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-accent-500 text-white font-semibold py-3 px-6 rounded-2xl
+           active:scale-95 transition-transform duration-100
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-beige-100 text-beige-700 font-semibold py-3 px-6 rounded-2xl
+           border border-beige-300 active:scale-95 transition-transform duration-100;
+  }
+
+  .btn-danger {
+    @apply bg-red-400 text-white font-semibold py-3 px-6 rounded-2xl
+           active:scale-95 transition-transform duration-100;
+  }
+
+  .card {
+    @apply bg-white rounded-3xl shadow-sm border border-beige-100 p-5;
+  }
+}
