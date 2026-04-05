@@ -13,7 +13,7 @@ import BottomNav from "@/components/BottomNav";
 type Step = "select-type" | "camera" | "preview";
 
 export default function CameraPage() {
-  const { user, accessToken } = useAuthContext();
+  const { user, accessToken, refreshAccessToken } = useAuthContext();
   const router = useRouter();
   const { settings, getDayNumber, saveGuidePhotoId } = useUserSettings(
     user?.uid ?? null,
