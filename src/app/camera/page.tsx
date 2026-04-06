@@ -280,8 +280,9 @@ export default function CameraPage() {
 
       router.replace("/home");
     } catch (err) {
-      console.error(err);
-      alert("保存に失敗しました。もう一度お試しください。");
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("Save error:", msg);
+      alert(`保存に失敗しました。\n\nエラー: ${msg}`);
     } finally {
       setSaving(false);
       setOverwriteConfirm(false);
