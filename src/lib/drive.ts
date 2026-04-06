@@ -93,6 +93,9 @@ export async function uploadPhoto(
     body: form,
   });
   const file = await res.json();
+  if (!res.ok || !file.id) {
+    throw new Error(`Drive upload failed: ${res.status} ${JSON.stringify(file)}`);
+  }
   return file.id as string;
 }
 

@@ -185,46 +185,81 @@ function drawBodySilhouette(
   ctx.restore();
 }
 
-// 参照写真をゴースト（半透明シルエット）としてCanvasに描画
+// 参照写真をエッジ検出して輪郭線のみ描画
 export function drawGhostOverlay(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
-  referenceImage: HTMLImageElement,
-  opacity: number = 0.35
+  edgeCanvas: HTMLCanvasElement
 ) {
   ctx.save();
-  ctx.globalAlpha = opacity;
-  // アスペクト比を保ちつつ中央に収める
-  const scale = Math.min(width / referenceImage.naturalWidth, height / referenceImage.naturalHeight);
-  const drawW = referenceImage.naturalWidth * scale;
-  const drawH = referenceImage.naturalHeight * scale;
-  const offsetX = (width - drawW) / 2;
-  const offsetY = (height - drawH) / 2;
-  ctx.drawImage(referenceImage, offsetX, offsetY, drawW, drawH);
+  ctx.globalAlpha = 0.75;
+  ctx.drawImage(edgeCanvas, 0, 0, width, height);
   ctx.restore();
+}
 
-  // ゴーストの上に3本の補助線を薄く重ねる
-  const guide = generateGuidePoints(height);
-  const lines = [
-    { y: guide.shoulder.y * height, color: "rgba(96,165,250,0.7)", label: "肩" },
-    { y: guide.waist.y * height, color: "rgba(249,115,22,0.7)", label: "腰" },
-    { y: guide.ankle.y * height, color: "rgba(167,139,250,0.7)", label: "足首" },
-  ];
-  lines.forEach(({ y, color, label }) => {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([8, 6]);
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(width, y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = color;
-    ctx.font = "bold 12px sans-serif";
-    ctx.textBaseline = "bottom";
-    ctx.fillText(label, 8, y - 3);
-  });
+// 参照写真からエッジ（輪郭）Canvasを生成（一度だけ呼ぶ）
+export function createEdgeCanvas(
+  img: HTMLImageElement,
+  width: number,
+  height: number
+): HTMLCanvasElement {
+  // 処理は1/2サイズで行いパフォーマンスを確保
+  const scale = 0.5;
+  const w = Math.max(1, Math.floor(width * scale));
+  const h = Math.max(1, Math.floor(height * scale));
+
+  const tmp = document.createElement("canvas");
+  tmp.width = w;
+  tmp.height = h;
+  const tmpCtx = tmp.getContext("2d")!;
+
+  // 画像をfit
+  const imgScale = Math.min(w / img.naturalWidth, h / img.naturalHeight);
+  const dw = img.naturalWidth * imgScale;
+  const dh = img.naturalHeight * imgScale;
+  tmpCtx.fillStyle = "#000";
+  tmpCtx.fillRect(0, 0, w, h);
+  tmpCtx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+
+  const imageData = tmpCtx.getImageData(0, 0, w, h);
+  const src = imageData.data;
+
+  // グレースケール化
+  const gray = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) {
+    gray[i] = src[i * 4] * 0.299 + src[i * 4 + 1] * 0.587 + src[i * 4 + 2] * 0.114;
+  }
+
+  // Sobelフィルタでエッジ検出
+  const out = new Uint8ClampedArray(w * h * 4);
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const i = y * w + x;
+      const gx =
+        -gray[i - w - 1] + gray[i - w + 1]
+        - 2 * gray[i - 1] + 2 * gray[i + 1]
+        - gray[i + w - 1] + gray[i + w + 1];
+      const gy =
+        -gray[i - w - 1] - 2 * gray[i - w] - gray[i - w + 1]
+        + gray[i + w - 1] + 2 * gray[i + w] + gray[i + w + 1];
+      const mag = Math.min(255, Math.sqrt(gx * gx + gy * gy) * 2.5);
+      out[i * 4]     = 255; // R
+      out[i * 4 + 1] = 255; // G
+      out[i * 4 + 2] = 255; // B
+      out[i * 4 + 3] = mag; // A（エッジ強度）
+    }
+  }
+
+  tmpCtx.putImageData(new ImageData(out, w, h), 0, 0);
+
+  // フルサイズに拡大して返す
+  const result = document.createElement("canvas");
+  result.width = width;
+  result.height = height;
+  const rCtx = result.getContext("2d")!;
+  rCtx.drawImage(tmp, 0, 0, width, height);
+  return result;
 }
 
 // 画像Blobをロード

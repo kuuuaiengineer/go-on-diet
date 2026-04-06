@@ -10,6 +10,9 @@ import {
 } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
 
+// sessionStorageではなくlocalStorageを使用（リロードでも消えない）
+const TOKEN_KEY = "gd_access_token";
+
 interface AuthState {
   user: User | null;
   accessToken: string | null;
@@ -26,10 +29,10 @@ export function useAuth() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        const token = sessionStorage.getItem("gd_access_token");
+        const token = localStorage.getItem(TOKEN_KEY);
         setState({ user, accessToken: token, loading: false });
       } else {
-        sessionStorage.removeItem("gd_access_token");
+        localStorage.removeItem(TOKEN_KEY);
         setState({ user: null, accessToken: null, loading: false });
       }
     });
@@ -41,7 +44,7 @@ export function useAuth() {
     const credential = GoogleAuthProvider.credentialFromResult(result);
     const token = credential?.accessToken ?? null;
     if (token) {
-      sessionStorage.setItem("gd_access_token", token);
+      localStorage.setItem(TOKEN_KEY, token);
     }
     setState((prev) => ({ ...prev, user: result.user, accessToken: token }));
     return { user: result.user, accessToken: token };
@@ -49,7 +52,7 @@ export function useAuth() {
 
   const signOut = async () => {
     await firebaseSignOut(auth);
-    sessionStorage.removeItem("gd_access_token");
+    localStorage.removeItem(TOKEN_KEY);
     setState({ user: null, accessToken: null, loading: false });
   };
 
@@ -58,7 +61,7 @@ export function useAuth() {
     const credential = GoogleAuthProvider.credentialFromResult(result);
     const token = credential?.accessToken ?? null;
     if (token) {
-      sessionStorage.setItem("gd_access_token", token);
+      localStorage.setItem(TOKEN_KEY, token);
       setState((prev) => ({ ...prev, accessToken: token }));
     }
     return token;
