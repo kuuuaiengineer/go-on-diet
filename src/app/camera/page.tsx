@@ -6,7 +6,7 @@ import { useAuthContext } from "@/components/AuthProvider";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { useRecords } from "@/hooks/useRecords";
 import { ShotType, SHOT_TYPE_LABELS, StampPosition } from "@/types";
-import { applyStampToImage, generateGuidePoints, drawGuideLines, drawGhostOverlay, createEdgeCanvas } from "@/lib/canvas";
+import { applyStampToImage, generateGuidePoints, drawGuideLines, drawGhostOverlay } from "@/lib/canvas";
 import { uploadPhoto, overwritePhoto, downloadFile } from "@/lib/drive";
 import BottomNav from "@/components/BottomNav";
 
@@ -33,7 +33,7 @@ export default function CameraPage() {
   const [showGuide, setShowGuide] = useState(true);
   const [saving, setSaving] = useState(false);
   const [overwriteConfirm, setOverwriteConfirm] = useState(false);
-  const [edgeCanvas, setEdgeCanvas] = useState<HTMLCanvasElement | null>(null);
+  const [referenceImage, setReferenceImage] = useState<HTMLImageElement | null>(null);
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [timerEnabled, setTimerEnabled] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -54,21 +54,18 @@ export default function CameraPage() {
     if (!accessToken || !settings || step !== "camera") return;
     const guideFileId = settings.guidePhotoId?.[shotType];
     if (!guideFileId) {
-      setEdgeCanvas(null);
+      setReferenceImage(null);
       return;
     }
-    const overlay = overlayRef.current;
-    if (!overlay) return;
     downloadFile(accessToken, guideFileId).then((blob) => {
       const url = URL.createObjectURL(blob);
       const img = new Image();
       img.onload = () => {
         URL.revokeObjectURL(url);
-        const edge = createEdgeCanvas(img, overlay.width || 390, overlay.height || 844);
-        setEdgeCanvas(edge);
+        setReferenceImage(img);
       };
       img.src = url;
-    }).catch(() => setEdgeCanvas(null));
+    }).catch(() => setReferenceImage(null));
   }, [accessToken, settings, shotType, step]);
 
   // ガイドオーバーレイを描画
@@ -80,14 +77,14 @@ export default function CameraPage() {
     const ctx = canvas.getContext("2d")!;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (edgeCanvas) {
-      // 2回目以降：輪郭線のみ表示
-      drawGhostOverlay(ctx, canvas.width, canvas.height, edgeCanvas);
+    if (referenceImage) {
+      // 2回目以降：ゴースト表示
+      drawGhostOverlay(ctx, canvas.width, canvas.height, referenceImage);
     }
     // 初回はガイドなし
 
     animFrameRef.current = requestAnimationFrame(drawOverlay);
-  }, [showGuide, edgeCanvas]);
+  }, [showGuide, referenceImage]);
 
   // カメラを起動
   const startCamera = useCallback(async () => {
@@ -271,7 +268,7 @@ export default function CameraPage() {
           driveFileId: fileId,
           driveFolderId: folderId,
           dayNumber,
-          weight: weight ? parseFloat(weight) : undefined,
+          ...(weight ? { weight: parseFloat(weight) } : {}),
           stampPosition,
           guideEnabled: showGuide,
         },
@@ -389,7 +386,7 @@ export default function CameraPage() {
             onClick={() => setShowGuide((v) => !v)}
             className="absolute top-12 right-4 z-20 bg-black/50 rounded-full px-3 py-2 text-xs text-white font-medium"
           >
-            {edgeCanvas ? "輪郭" : "ガイド"} {showGuide ? "ON" : "OFF"}
+            {referenceImage ? "ゴースト" : "ガイド"} {showGuide ? "ON" : "OFF"}
           </button>
 
           {/* タイプ表示 */}

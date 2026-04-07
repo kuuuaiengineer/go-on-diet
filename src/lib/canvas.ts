@@ -185,81 +185,24 @@ function drawBodySilhouette(
   ctx.restore();
 }
 
-// 参照写真をエッジ検出して輪郭線のみ描画
+// 参照写真をグレースケール・低透明度でゴースト表示
 export function drawGhostOverlay(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
-  edgeCanvas: HTMLCanvasElement
+  img: HTMLImageElement
 ) {
+  const scale = Math.min(width / img.naturalWidth, height / img.naturalHeight);
+  const dw = img.naturalWidth * scale;
+  const dh = img.naturalHeight * scale;
+  const ox = (width - dw) / 2;
+  const oy = (height - dh) / 2;
+
   ctx.save();
-  ctx.globalAlpha = 0.75;
-  ctx.drawImage(edgeCanvas, 0, 0, width, height);
+  ctx.filter = "grayscale(100%)";
+  ctx.globalAlpha = 0.22;
+  ctx.drawImage(img, ox, oy, dw, dh);
   ctx.restore();
-}
-
-// 参照写真からエッジ（輪郭）Canvasを生成（一度だけ呼ぶ）
-export function createEdgeCanvas(
-  img: HTMLImageElement,
-  width: number,
-  height: number
-): HTMLCanvasElement {
-  // 処理は1/2サイズで行いパフォーマンスを確保
-  const scale = 0.5;
-  const w = Math.max(1, Math.floor(width * scale));
-  const h = Math.max(1, Math.floor(height * scale));
-
-  const tmp = document.createElement("canvas");
-  tmp.width = w;
-  tmp.height = h;
-  const tmpCtx = tmp.getContext("2d")!;
-
-  // 画像をfit
-  const imgScale = Math.min(w / img.naturalWidth, h / img.naturalHeight);
-  const dw = img.naturalWidth * imgScale;
-  const dh = img.naturalHeight * imgScale;
-  tmpCtx.fillStyle = "#000";
-  tmpCtx.fillRect(0, 0, w, h);
-  tmpCtx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
-
-  const imageData = tmpCtx.getImageData(0, 0, w, h);
-  const src = imageData.data;
-
-  // グレースケール化
-  const gray = new Float32Array(w * h);
-  for (let i = 0; i < w * h; i++) {
-    gray[i] = src[i * 4] * 0.299 + src[i * 4 + 1] * 0.587 + src[i * 4 + 2] * 0.114;
-  }
-
-  // Sobelフィルタでエッジ検出
-  const out = new Uint8ClampedArray(w * h * 4);
-  for (let y = 1; y < h - 1; y++) {
-    for (let x = 1; x < w - 1; x++) {
-      const i = y * w + x;
-      const gx =
-        -gray[i - w - 1] + gray[i - w + 1]
-        - 2 * gray[i - 1] + 2 * gray[i + 1]
-        - gray[i + w - 1] + gray[i + w + 1];
-      const gy =
-        -gray[i - w - 1] - 2 * gray[i - w] - gray[i - w + 1]
-        + gray[i + w - 1] + 2 * gray[i + w] + gray[i + w + 1];
-      const mag = Math.min(255, Math.sqrt(gx * gx + gy * gy) * 2.5);
-      out[i * 4]     = 255; // R
-      out[i * 4 + 1] = 255; // G
-      out[i * 4 + 2] = 255; // B
-      out[i * 4 + 3] = mag; // A（エッジ強度）
-    }
-  }
-
-  tmpCtx.putImageData(new ImageData(out, w, h), 0, 0);
-
-  // フルサイズに拡大して返す
-  const result = document.createElement("canvas");
-  result.width = width;
-  result.height = height;
-  const rCtx = result.getContext("2d")!;
-  rCtx.drawImage(tmp, 0, 0, width, height);
-  return result;
 }
 
 // 画像Blobをロード
