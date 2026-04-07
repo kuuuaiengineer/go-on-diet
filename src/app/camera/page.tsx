@@ -208,23 +208,12 @@ export default function CameraPage() {
 
   // 保存処理
   const handleSave = async () => {
-    if (!stampedBlob || !settings || !user) {
-      alert("保存に必要な情報が不足しています。");
+    if (!stampedBlob || !user) {
+      alert("撮影データがありません。");
       return;
     }
-
-    // アクセストークンが切れていたら再取得
-    let token = accessToken;
-    if (!token) {
-      try {
-        token = await refreshAccessToken();
-      } catch {
-        alert("Googleの認証が切れました。ページを再読み込みしてログインし直してください。");
-        return;
-      }
-    }
-    if (!token) {
-      alert("Googleドライブへのアクセス権がありません。ログインし直してください。");
+    if (!settings) {
+      alert("設定が読み込まれていません。ホームに戻って再度お試しください。");
       return;
     }
 
@@ -235,25 +224,44 @@ export default function CameraPage() {
 
     setSaving(true);
     try {
-      // フォルダIDが未設定の場合は再作成
-      let folderId = settings.subFolderIds[shotType];
-      if (!folderId) {
-        const { getOrCreateAppFolder, getOrCreateSubFolder } = await import("@/lib/drive");
-        const appFolderId = settings.appFolderId || await getOrCreateAppFolder(token);
-        folderId = await getOrCreateSubFolder(token, appFolderId, shotType);
+      // トークン取得（失効していたらポップアップで再取得）
+      let token = accessToken;
+      if (!token) {
+        token = await refreshAccessToken();
       }
-      const fileName = `${today}.jpg`;
+      if (!token) {
+        throw new Error("Googleドライブへのアクセス権がありません。ログインし直してください。");
+      }
+
+      // Drive へアップロード（401なら自動でトークン再取得してリトライ）
+      const doUpload = async (tk: string): Promise<string> => {
+        const { getOrCreateAppFolder, getOrCreateSubFolder } = await import("@/lib/drive");
+        let folderId = settings.subFolderIds[shotType];
+        if (!folderId) {
+          const appFolderId = settings.appFolderId || await getOrCreateAppFolder(tk);
+          folderId = await getOrCreateSubFolder(tk, appFolderId, shotType);
+        }
+        const fileName = `${today}.jpg`;
+        if (existingRecord) {
+          return overwritePhoto(tk, folderId, fileName, stampedBlob!, existingRecord.driveFileId);
+        } else {
+          return uploadPhoto(tk, folderId, fileName, stampedBlob!);
+        }
+      };
+
       let fileId: string;
-      if (existingRecord) {
-        fileId = await overwritePhoto(
-          token,
-          folderId,
-          fileName,
-          stampedBlob,
-          existingRecord.driveFileId
-        );
-      } else {
-        fileId = await uploadPhoto(token, folderId, fileName, stampedBlob);
+      try {
+        fileId = await doUpload(token);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("401") || msg.includes("invalid_grant") || msg.includes("Invalid Credentials")) {
+          // トークン失効 → ポップアップで再取得してリトライ
+          token = await refreshAccessToken();
+          if (!token) throw new Error("トークンの更新に失敗しました。再ログインしてください。");
+          fileId = await doUpload(token);
+        } else {
+          throw err;
+        }
       }
 
       // ガイド用写真として最初の記録を保存
@@ -261,12 +269,13 @@ export default function CameraPage() {
         await saveGuidePhotoId(shotType, fileId);
       }
 
+      // Firestore に記録を保存
       await saveRecord(
         {
           date: today,
           shotType,
           driveFileId: fileId,
-          driveFolderId: folderId,
+          driveFolderId: settings.subFolderIds[shotType] ?? "",
           dayNumber,
           ...(weight ? { weight: parseFloat(weight) } : {}),
           stampPosition,
@@ -279,11 +288,13 @@ export default function CameraPage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("Save error:", msg);
-      alert(`保存に失敗しました。\n\nエラー: ${msg}`);
-    } finally {
       setSaving(false);
       setOverwriteConfirm(false);
+      alert(`保存に失敗しました。\n\nエラー: ${msg}`);
+      return;
     }
+    setSaving(false);
+    setOverwriteConfirm(false);
   };
 
   const handleBack = () => {

@@ -63,10 +63,10 @@ export function useRecords(uid: string | null, accessToken: string | null) {
     record: DailyRecord,
     existingRecord?: DailyRecord
   ) => {
-    if (!uid || !accessToken) throw new Error("Not authenticated");
+    if (!uid) throw new Error("Not authenticated");
 
-    // 既存のドライブファイルを削除（上書き時）
-    if (existingRecord && existingRecord.driveFileId !== record.driveFileId) {
+    // 既存のドライブファイルを削除（上書き時・トークンあれば）
+    if (existingRecord && existingRecord.driveFileId !== record.driveFileId && accessToken) {
       await deleteFile(accessToken, existingRecord.driveFileId);
     }
 
