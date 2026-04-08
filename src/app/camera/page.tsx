@@ -33,6 +33,7 @@ export default function CameraPage() {
   const [showGuide, setShowGuide] = useState(true);
   const [saving, setSaving] = useState(false);
   const [overwriteConfirm, setOverwriteConfirm] = useState(false);
+  const [reauthNeeded, setReauthNeeded] = useState(false);
   const [referenceImage, setReferenceImage] = useState<HTMLImageElement | null>(null);
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [timerEnabled, setTimerEnabled] = useState(false);
@@ -255,13 +256,12 @@ export default function CameraPage() {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.includes("401") || msg.includes("invalid_grant") || msg.includes("Invalid Credentials")) {
-          // トークン失効 → ポップアップで再取得してリトライ
-          token = await refreshAccessToken();
-          if (!token) throw new Error("トークンの更新に失敗しました。再ログインしてください。");
-          fileId = await doUpload(token);
-        } else {
-          throw err;
+          // トークン失効 → ユーザーの直接タップが必要なので再認証ボタンを表示
+          setSaving(false);
+          setReauthNeeded(true);
+          return;
         }
+        throw err;
       }
 
       // ガイド用写真として最初の記録を保存
@@ -295,6 +295,21 @@ export default function CameraPage() {
     }
     setSaving(false);
     setOverwriteConfirm(false);
+  };
+
+  // 再認証ボタンをユーザーが直接タップ → popupが許可される
+  const handleReauth = async () => {
+    setReauthNeeded(false);
+    setSaving(true);
+    try {
+      await refreshAccessToken();
+    } catch {
+      setSaving(false);
+      alert("再認証に失敗しました。ホームに戻ってログインし直してください。");
+      return;
+    }
+    // トークン更新後に保存を再実行
+    await handleSave();
   };
 
   const handleBack = () => {
@@ -478,6 +493,24 @@ export default function CameraPage() {
             alt="preview"
             className="w-full rounded-2xl object-contain max-h-72"
           />
+        )}
+
+        {/* 再認証バナー */}
+        {reauthNeeded && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+            <p className="text-sm font-semibold text-red-700">
+              Googleドライブへの接続が切れました
+            </p>
+            <p className="text-xs text-red-500 mt-1">
+              タップして再接続してください
+            </p>
+            <button
+              onClick={handleReauth}
+              className="mt-3 w-full btn-primary py-2 text-sm bg-red-500 border-red-500"
+            >
+              再接続して保存
+            </button>
+          </div>
         )}
 
         {/* 上書き警告 */}
