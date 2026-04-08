@@ -10,8 +10,30 @@ import {
 } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
 
-// sessionStorageではなくlocalStorageを使用（リロードでも消えない）
 const TOKEN_KEY = "gd_access_token";
+const TOKEN_TS_KEY = "gd_access_token_ts";
+const TOKEN_TTL_MS = 55 * 60 * 1000; // 55分（Googleトークンの有効期限1時間より前）
+
+function saveToken(token: string) {
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(TOKEN_TS_KEY, Date.now().toString());
+}
+
+function clearToken() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(TOKEN_TS_KEY);
+}
+
+function loadToken(): string | null {
+  const token = localStorage.getItem(TOKEN_KEY);
+  const ts = localStorage.getItem(TOKEN_TS_KEY);
+  if (!token || !ts) return null;
+  if (Date.now() - parseInt(ts) > TOKEN_TTL_MS) {
+    clearToken();
+    return null; // 期限切れ
+  }
+  return token;
+}
 
 interface AuthState {
   user: User | null;
@@ -29,10 +51,10 @@ export function useAuth() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        const token = localStorage.getItem(TOKEN_KEY);
+        const token = loadToken(); // 期限切れなら null
         setState({ user, accessToken: token, loading: false });
       } else {
-        localStorage.removeItem(TOKEN_KEY);
+        clearToken();
         setState({ user: null, accessToken: null, loading: false });
       }
     });
@@ -43,16 +65,14 @@ export function useAuth() {
     const result = await signInWithPopup(auth, googleProvider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     const token = credential?.accessToken ?? null;
-    if (token) {
-      localStorage.setItem(TOKEN_KEY, token);
-    }
+    if (token) saveToken(token);
     setState((prev) => ({ ...prev, user: result.user, accessToken: token }));
     return { user: result.user, accessToken: token };
   };
 
   const signOut = async () => {
     await firebaseSignOut(auth);
-    localStorage.removeItem(TOKEN_KEY);
+    clearToken();
     setState({ user: null, accessToken: null, loading: false });
   };
 
@@ -61,7 +81,7 @@ export function useAuth() {
     const credential = GoogleAuthProvider.credentialFromResult(result);
     const token = credential?.accessToken ?? null;
     if (token) {
-      localStorage.setItem(TOKEN_KEY, token);
+      saveToken(token);
       setState((prev) => ({ ...prev, accessToken: token }));
     }
     return token;

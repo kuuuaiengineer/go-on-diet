@@ -9,7 +9,7 @@ import BottomNav from "@/components/BottomNav";
 import Link from "next/link";
 
 export default function HomePage() {
-  const { user, accessToken, loading: authLoading } = useAuthContext();
+  const { user, accessToken, loading: authLoading, refreshAccessToken } = useAuthContext();
   const router = useRouter();
   const { settings, loading: settingsLoading, getDayNumber, initSettings } = useUserSettings(
     user?.uid ?? null,
@@ -17,6 +17,7 @@ export default function HomePage() {
   );
   const { hasTodayRecord } = useRecords(user?.uid ?? null, accessToken);
   const [showSetup, setShowSetup] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
   const [startDate, setStartDate] = useState(
     new Date().toISOString().split("T")[0]
   );
@@ -104,6 +105,26 @@ export default function HomePage() {
       </div>
 
       <div className="flex-1 px-6 flex flex-col gap-4">
+        {/* Driveトークン切れバナー */}
+        {user && !accessToken && (
+          <button
+            onClick={async () => {
+              setReconnecting(true);
+              try { await refreshAccessToken(); } catch { /* user closed popup */ }
+              setReconnecting(false);
+            }}
+            disabled={reconnecting}
+            className="w-full bg-amber-50 border border-amber-300 rounded-2xl px-4 py-3 text-left active:scale-98 transition-transform"
+          >
+            <p className="text-sm font-semibold text-amber-700">
+              {reconnecting ? "接続中..." : "⚠️ Googleドライブに再接続が必要です"}
+            </p>
+            <p className="text-xs text-amber-500 mt-0.5">
+              タップして接続（写真の保存に必要）
+            </p>
+          </button>
+        )}
+
         {/* ダイエット何日目カード */}
         <div className="card flex flex-col items-center py-8 gap-2">
           <p className="text-sm text-beige-400 font-medium">ダイエット</p>
